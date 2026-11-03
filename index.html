@@ -110,8 +110,8 @@
     color: var(--primary);
   }
 
-  /* במסכי מגע האצבע לא מזיזה את הדמות ולכן ממשיכה לגלול את הדף */
-  @media (pointer: coarse), (hover: none) { #hero-model { pointer-events: none; touch-action: pan-y; } }
+  /* הדמות לא מגיבה לעכבר או לאצבע, והאצבע ממשיכה לגלול את הדף */
+  #hero-model { pointer-events: none; touch-action: pan-y; }
   model-viewer {
     width: min(92vw, 460px);
     height: min(58vh, 460px);
@@ -143,6 +143,8 @@
   .clickable:hover, .clickable:focus-visible { transform: scale(1.04); outline: none; }
   /* תמונה קטנה שצצה כשעוברים על הכותרת ונעלמת כשעוזבים; העיגול מוגדל מעט כדי להעלים את הטבעת הלבנה שבקובץ המקורי */
   .who { position: relative; display: inline-block; }
+  /* אזור ריחוף רחב לאורך שורת הכותרת, כדי שהתמונה לא תיעלם בגלל תזוזה קטנה של העכבר */
+  .who::before { content: ""; position: absolute; top: -10px; bottom: -10px; right: 0; width: min(640px, calc(100vw - 40px)); }
   .photo-pop {
     position: absolute; bottom: 2px; right: calc(100% + 16px); z-index: 5;
     width: 100px; aspect-ratio: 1; border-radius: 50%; overflow: hidden;
@@ -226,8 +228,6 @@
       poster="assets/poster.webp"
       loading="eager"
       reveal="auto"
-      camera-controls
-      disable-zoom
       interaction-prompt="none"
       shadow-intensity="0.8"
       exposure="1.1">
@@ -256,52 +256,39 @@
 </section>
 
 <script>
-  /* הדמות עומדת במקום; רק כשעוברים עליה עם העכבר (או נוגעים) היא מסתובבת במהירות סיבוב שלם */
+  /* הדמות עומדת במקום. בכל פעם שעוברים עליה (עכבר או אצבע) היא עושה סיבוב מהיר של 360 מעלות ונעצרת.
+     אין גרירה ואין זום: האצבע ממשיכה לגלול את הדף. */
   (function () {
     var stage = document.getElementById('stage');
-    var mv = stage.querySelector('model-viewer');
-    var scene, body, spinning = false, angle = 0;
-    var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var mv = document.getElementById('hero-model');
+    var scene, body = null, spinning = false, SPIN_MS = 700;
 
-    function findBody() {
+    function init() {
       var sym = Object.getOwnPropertySymbols(mv).filter(function (s) { return s.description === 'scene'; })[0];
       scene = mv[sym];
       scene.traverse(function (o) {
         if (!body && o.type === 'Group' && o.children.some(function (c) { return c.type === 'Group'; })) body = o;
-      });
-    }
-    function spin() {
-      if (!body || spinning || still) return;
-      spinning = true;
-      var from = angle, t0 = performance.now(), dur = 700;
-      (function step(now) {
-        var t = Math.min((now - t0) / dur, 1);
-        var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-        body.rotation.y = from + Math.PI * 2 * e;
-        scene.queueRender();
-        if (t < 1) requestAnimationFrame(step);
-        else { angle = from + Math.PI * 2; spinning = false; }
-      })(t0);
-    }
-    /* עדשה שקופה באמת: העין נראית דרך הזכוכית ולא עליה */
-    function clearLens() {
-      scene.traverse(function (o) {
         var m = o.isMesh && o.material;
-        if (m && m.name === 'lens-glass') {
-          m.opacity = 0.03;
-          m.transparent = true;
-          m.depthWrite = false;
-          m.envMapIntensity = 0;
-          m.needsUpdate = true;
-        }
+        if (m && m.name === 'lens-glass') { m.opacity = 0.03; m.transparent = true; m.depthWrite = false; m.envMapIntensity = 0; m.needsUpdate = true; }
       });
       scene.queueRender();
     }
-    mv.addEventListener('load', function () { findBody(); clearLens(); });
-    /* סיבוב רק בעכבר: נגיעה באצבע (גם בטעות באמצע גלילה) לא מסובבת */
-    function mouseSpin(e) { if (e.pointerType === 'mouse' || e.pointerType === 'pen') spin(); }
-    stage.addEventListener('pointerenter', mouseSpin);
-    stage.addEventListener('pointerdown', mouseSpin);
+    function spin() {
+      if (!body || spinning) return;
+      spinning = true;
+      var t0 = performance.now();
+      (function step(now) {
+        var t = Math.min((now - t0) / SPIN_MS, 1);
+        var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        body.rotation.y = Math.PI * 2 * e;
+        scene.queueRender();
+        if (t < 1) requestAnimationFrame(step);
+        else { body.rotation.y = 0; scene.queueRender(); spinning = false; }
+      })(t0);
+    }
+    if (mv.loaded) init(); else mv.addEventListener('load', init);
+    stage.addEventListener('pointerenter', spin);
+    stage.addEventListener('pointerdown', spin);
   })();
 </script>
 <script>
@@ -318,27 +305,27 @@
   });
 </script>
 <script>
-  /* תצוגה מרחפת (התמונה של "מי אני" וווטסון הקטן): נשארת כל עוד העכבר על הכותרת או על התמונה עצמה,
-     ונעלמת רק אחרי שהעכבר יצא ממנה לרגע קצר. לחיצה בעכבר לא מסתירה. במגע: נוגעים כדי להציג/להסתיר. */
+  /* התמונות הקטנות ("מי אני" וווטסון): הן נשארות כל עוד הקורא על השורה של הכותרת.
+     בעכבר: כל עוד העכבר על שורת הכותרת או על התמונה, ונעלמות רק אחרי שהות של כשנייה מחוץ לשורה.
+     במגע: אין עכבר, ולכן הן מוצגות כל עוד הכותרת באזור האמצעי של המסך בזמן הגלילה. */
   (function () {
-    function hoverBox(box) {
+    var touch = window.matchMedia('(hover: none)').matches;
+    function setup(box) {
       var timer = null;
       function show() { clearTimeout(timer); box.classList.add('show'); }
-      function hide() { clearTimeout(timer); timer = setTimeout(function () { box.classList.remove('show'); }, 350); }
-      box.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse' || e.pointerType === 'pen') show(); });
-      box.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse' || e.pointerType === 'pen') hide(); });
+      function hide() { clearTimeout(timer); timer = setTimeout(function () { box.classList.remove('show'); }, 1000); }
+      if (touch && 'IntersectionObserver' in window) {
+        new IntersectionObserver(function (e) {
+          if (e[0].isIntersecting) show(); else { clearTimeout(timer); box.classList.remove('show'); }
+        }, { rootMargin: '-28% 0px -28% 0px' }).observe(box);
+        return;
+      }
+      box.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') show(); });
+      box.addEventListener('pointerleave', function (e) { if (e.pointerType !== 'touch') hide(); });
       box.addEventListener('focusin', show);
       box.addEventListener('focusout', hide);
-      var lastType = 'mouse';
-      box.addEventListener('pointerdown', function (e) { lastType = e.pointerType; });
-      box.addEventListener('click', function (e) {
-        e.stopPropagation();
-        if (lastType !== 'touch') { show(); return; }
-        box.classList.contains('show') ? hide() : show();
-      });
-      document.addEventListener('click', function () { if (lastType === 'touch') hide(); });
     }
-    ['who', 'meet'].forEach(function (id) { hoverBox(document.getElementById(id)); });
+    ['who', 'meet'].forEach(function (id) { setup(document.getElementById(id)); });
   })();
 </script>
 
