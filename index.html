@@ -164,6 +164,12 @@
     100% { transform: translateY(0) rotate(0) scale(1,1); }
   }
 
+  .cta-buttons { display: flex; flex-wrap: wrap; gap: 16px 20px; justify-content: center; }
+  .cta-buttons .pill { margin-top: 0; }
+  .pill-alt { background: #fff; color: var(--primary); box-shadow: 0 6px 0 #b9d3e6, 0 12px 24px rgba(74,106,138,.2); }
+  .pill-alt:hover, .pill-alt:focus-visible { box-shadow: 0 9px 0 #b9d3e6, 0 16px 28px rgba(74,106,138,.25); }
+  .pill-alt:active { box-shadow: 0 3px 0 #b9d3e6; }
+
   section {
     max-width: 720px;
     margin: 0 auto;
@@ -222,7 +228,10 @@
 
 <section class="cta">
   <p>התרשמתם? בואו נמשיך לצעד הבא: הזמינו פגישה.</p>
-  <a class="pill" href="mailto:the.octo.bunch@gmail.com?subject=%D7%94%D7%96%D7%9E%D7%A0%D7%AA%20%D7%A4%D7%92%D7%99%D7%A9%D7%94%20-%20The%20Octo%20Bunch">הזמינו פגישה</a>
+  <div class="cta-buttons">
+    <a class="pill" href="https://wa.me/972503250525?text=%D7%A9%D7%9C%D7%95%D7%9D%20%D7%A1%D7%9E%D7%93%D7%A8%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%94%D7%96%D7%9E%D7%99%D7%9F%20%D7%A4%D7%92%D7%99%D7%A9%D7%94%20-%20The%20Octo%20Bunch" target="_blank" rel="noopener">הזמינו פגישה בוואטסאפ</a>
+    <a class="pill pill-alt" href="mailto:the.octo.bunch@gmail.com?subject=%D7%94%D7%96%D7%9E%D7%A0%D7%AA%20%D7%A4%D7%92%D7%99%D7%A9%D7%94%20-%20The%20Octo%20Bunch">או שלחו מייל</a>
+  </div>
 </section>
 
 <script>
