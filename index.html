@@ -8,6 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js">
+<link rel="preload" href="assets/poster.webp" as="image">
+<link rel="preload" href="assets/agent-compressed-fixed.glb" as="fetch" crossorigin>
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 <style>
   :root {
@@ -79,7 +82,16 @@
   .ch.c0 { color: #ffffff; }
   .ch.c1 { color: var(--accent); }
   .ch.c2 { color: #ffd479; }
-  .ch.hop { animation: letterHop .6s cubic-bezier(.3,.7,.4,1); }
+  .ch .in { display: inline-block; transform-origin: 50% 100%; }
+  /* גל קטן ושמח: כל אות קופצת מעט אחרי הקודמת, ואז הפסקה קצרה לפני הגל הבא */
+  .ch { animation: letterWave 3.6s ease-in-out infinite; animation-delay: calc(var(--i) * 0.09s); }
+  @keyframes letterWave {
+    0%, 22%, 100% { transform: translateY(0) rotate(0) scale(1,1); }
+    5%  { transform: translateY(1px) rotate(0) scale(1.05,.95); }
+    11% { transform: translateY(-9px) rotate(-3deg) scale(.97,1.05); }
+    17% { transform: translateY(0) rotate(1deg) scale(1.04,.96); }
+  }
+  .ch .in.hop { animation: letterHop .6s cubic-bezier(.3,.7,.4,1); }
   @keyframes letterHop {
     0%   { transform: translateY(0) scale(1,1); }
     18%  { transform: translateY(2px) scale(1.12,.84); }
@@ -98,6 +110,8 @@
     color: var(--primary);
   }
 
+  /* במסכי מגע האצבע לא מזיזה את הדמות ולכן ממשיכה לגלול את הדף */
+  @media (pointer: coarse), (hover: none) { #hero-model { pointer-events: none; touch-action: pan-y; } }
   model-viewer {
     width: min(92vw, 460px);
     height: min(58vh, 460px);
@@ -191,7 +205,7 @@
   @media (prefers-reduced-motion: reduce) {
     .photo-pop, .watson-pop { transition: none; }
     .watson-sprite { animation: none !important; }
-    .blob, .pill, .ch { animation: none !important; transition: none; }
+    .blob, .pill, .ch, .ch .in { animation: none !important; transition: none; }
   }
 </style>
 </head>
@@ -202,13 +216,16 @@
   <div class="blob b2"></div>
   <div class="blob b3"></div>
 
-  <h1 dir="ltr" aria-label="THE OCTO BUNCH" id="title"><span class="word"><span class="ch c0" aria-hidden="true">T</span><span class="ch c1" aria-hidden="true">H</span><span class="ch c2" aria-hidden="true">E</span></span> <span class="word"><span class="ch c0" aria-hidden="true">O</span><span class="ch c1" aria-hidden="true">C</span><span class="ch c2" aria-hidden="true">T</span><span class="ch c0" aria-hidden="true">O</span></span> <span class="word"><span class="ch c1" aria-hidden="true">B</span><span class="ch c2" aria-hidden="true">U</span><span class="ch c0" aria-hidden="true">N</span><span class="ch c1" aria-hidden="true">C</span><span class="ch c2" aria-hidden="true">H</span></span></h1>
+  <h1 dir="ltr" aria-label="THE OCTO BUNCH" id="title"><span class="word"><span class="ch c0" style="--i:0" aria-hidden="true"><span class="in">T</span></span><span class="ch c1" style="--i:1" aria-hidden="true"><span class="in">H</span></span><span class="ch c2" style="--i:2" aria-hidden="true"><span class="in">E</span></span></span> <span class="word"><span class="ch c0" style="--i:3" aria-hidden="true"><span class="in">O</span></span><span class="ch c1" style="--i:4" aria-hidden="true"><span class="in">C</span></span><span class="ch c2" style="--i:5" aria-hidden="true"><span class="in">T</span></span><span class="ch c0" style="--i:6" aria-hidden="true"><span class="in">O</span></span></span> <span class="word"><span class="ch c1" style="--i:7" aria-hidden="true"><span class="in">B</span></span><span class="ch c2" style="--i:8" aria-hidden="true"><span class="in">U</span></span><span class="ch c0" style="--i:9" aria-hidden="true"><span class="in">N</span></span><span class="ch c1" style="--i:10" aria-hidden="true"><span class="in">C</span></span><span class="ch c2" style="--i:11" aria-hidden="true"><span class="in">H</span></span></span></h1>
   <h2 class="tagline">סדרה מקורית בעלת מבנה קבוע, דמויות ססגוניות, הומור וטוויסטים, רבת פרקים עם פוטנציאל כלכלי ענקקק כולל Merchandise.</h2>
 
   <div class="stage" id="stage">
-    <model-viewer
+    <model-viewer id="hero-model"
       src="assets/agent-compressed-fixed.glb"
       alt="ווטסון, הסוכן הבלש עם זכוכית המגדלת"
+      poster="assets/poster.webp"
+      loading="eager"
+      reveal="auto"
       camera-controls
       disable-zoom
       interaction-prompt="none"
@@ -281,20 +298,23 @@
       scene.queueRender();
     }
     mv.addEventListener('load', function () { findBody(); clearLens(); });
-    stage.addEventListener('pointerenter', spin);
-    stage.addEventListener('click', spin);
+    /* סיבוב רק בעכבר: נגיעה באצבע (גם בטעות באמצע גלילה) לא מסובבת */
+    function mouseSpin(e) { if (e.pointerType === 'mouse' || e.pointerType === 'pen') spin(); }
+    stage.addEventListener('pointerenter', mouseSpin);
+    stage.addEventListener('pointerdown', mouseSpin);
   })();
 </script>
 <script>
-  /* כל אות קופצת כשעוברים עליה עם העכבר (או נוגעים בה) */
-  document.querySelectorAll('#title .ch').forEach(function (el) {
+  /* בנוסף לגל האוטומטי: כל אות קופצת גבוה יותר כשעוברים עליה עם העכבר (או נוגעים בה) */
+  document.querySelectorAll('#title .ch').forEach(function (ch) {
+    var el = ch.querySelector('.in');
     function hop() {
       if (el.classList.contains('hop')) return;
       el.classList.add('hop');
       setTimeout(function () { el.classList.remove('hop'); }, 620);
     }
-    el.addEventListener('pointerenter', hop);
-    el.addEventListener('click', hop);
+    ch.addEventListener('pointerenter', hop);
+    ch.addEventListener('click', hop);
   });
 </script>
 <script>
